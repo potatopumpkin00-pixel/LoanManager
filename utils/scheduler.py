@@ -6,6 +6,7 @@ Sends payment reminders on the due date and for 2 days after if unpaid.
 import logging
 import os
 from datetime import date
+from urllib.request import urlopen
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -121,6 +122,21 @@ async def run_startup_check(bot):
     logger.info("✅ Startup reminder check complete.")
 
 
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "")
+
+
+async def keep_alive_ping():
+    """Ping own health endpoint to prevent Render free tier spin-down."""
+    if not RENDER_EXTERNAL_URL:
+        return
+    try:
+        url = f"{RENDER_EXTERNAL_URL}/health"
+        urlopen(url, timeout=10)
+        logger.debug(f"Keep-alive ping sent to {url}")
+    except Exception as e:
+        logger.warning(f"Keep-alive ping failed: {e}")
+
+
 def setup_scheduler(bot) -> AsyncIOScheduler:
     """
     Set up the APScheduler with a daily reminder job.
@@ -141,18 +157,30 @@ def setup_scheduler(bot) -> AsyncIOScheduler:
         id="daily_reminder",
         name="Daily Loan Payment Reminder",
         replace_existing=True,
-        misfire_grace_time=3600,  # Allow 1 hour grace time if the execution gets delayed
+        misfire_grace_time=3600,
     )
 
     # Startup check — catch any missed reminders
     scheduler.add_job(
         run_startup_check,
-        trigger="date",  # Run once immediately
+        trigger="date",
         args=[bot],
         id="startup_reminder_check",
         name="Startup Reminder Check",
         replace_existing=True,
     )
+
+    # Keep-alive ping every 10 minutes (prevents Render free tier spin-down)
+    if RENDER_EXTERNAL_URL:
+        from apscheduler.triggers.interval import IntervalTrigger
+        scheduler.add_job(
+            keep_alive_ping,
+            trigger=IntervalTrigger(minutes=10),
+            id="keep_alive_ping",
+            name="Keep-Alive Ping",
+            replace_existing=True,
+        )
+        logger.info(f"🏓 Keep-alive ping enabled for {RENDER_EXTERNAL_URL}")
 
     scheduler.start()
     logger.info(f"✅ Scheduler started — reminders at {REMINDER_HOUR}:00 {TIMEZONE}")
