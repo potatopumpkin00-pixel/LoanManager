@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import tempfile
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -303,6 +305,30 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------------------------------------------------------------------
+# Health-check server for Render Web Service (free tier)
+# ---------------------------------------------------------------------------
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        pass  # Suppress noisy HTTP logs
+
+
+def start_health_server():
+    """Start a lightweight HTTP server in a background thread for Render health checks."""
+    port = int(os.getenv("PORT", "10000"))
+    server = HTTPServer(("0.0.0.0", port), _HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    print(f"✅ Health-check server running on port {port}")
+
+
+# ---------------------------------------------------------------------------
 # Application setup
 # ---------------------------------------------------------------------------
 
@@ -315,6 +341,10 @@ def main():
     if not AUTHORIZED_TELEGRAM_ID:
         print("❌ AUTHORIZED_TELEGRAM_ID not set in .env")
         return
+
+    # Start health-check HTTP server for Render Web Service
+    start_health_server()
+
 
     print("🚀 Starting Personal Loan Manager Bot...")
 

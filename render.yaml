@@ -1,5 +1,5 @@
 services:
-  - type: worker
+  - type: web
     name: loan-manager-bot
     runtime: docker
     dockerfilePath: ./Dockerfile
