@@ -1,0 +1,22 @@
+services:
+  - type: worker
+    name: loan-manager-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore
+    plan: free
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: AUTHORIZED_TELEGRAM_ID
+        sync: false
+      - key: REMINDER_HOUR
+        value: "9"
+      - key: TIMEZONE
+        value: "Asia/Tokyo"

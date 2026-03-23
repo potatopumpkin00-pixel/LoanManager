@@ -1,0 +1,7 @@
+python-telegram-bot>=21.0
+supabase>=2.0
+groq>=0.4
+edge-tts>=6.1
+pydub>=0.25
+apscheduler>=3.10
+python-dotenv>=1.0
