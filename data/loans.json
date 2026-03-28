@@ -270,5 +270,13 @@
     "principal": 1400000,
     "interest_rate": 1.0,
     "interest": 14000
+  },
+  {
+    "lender_name": "Vijay",
+    "loan_date": "2025-01-27",
+    "last_paid_month": "2026-03-01",
+    "principal": 30000,
+    "interest_rate": 3.0,
+    "interest": 900
   }
 ]
