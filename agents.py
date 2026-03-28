@@ -568,16 +568,24 @@ class ConversationAgent:
             except (ValueError, AttributeError):
                 current_date = date.today()
 
-            # Mark the first matching loan as paid
-            loan = loans[0]
+            # Find the loan that matches the paid amount to the monthly interest
             paid_amount = float(amount)
-            db.mark_paid(loan["id"], current_date)
+            target_loan = loans[0] # Fallback to the first loan
+
+            for l in loans:
+                monthly_interest = float(l["principal"]) * float(l["interest_rate"]) / 100
+                if abs(monthly_interest - paid_amount) < 0.01:
+                    target_loan = l
+                    break
+
+            db.mark_paid(target_loan["id"], current_date)
 
             response = (
-                f"✅ {loan['lender_name']} "
+                f"✅ {target_loan['lender_name']} "
                 f"₹{paid_amount:,.0f} செலுத்தியதாக குறிக்கப்பட்டது! "
                 f"(தேதி: {current_date.strftime('%Y-%m-%d')})"
             )
+
                 
             return {"response": response, "action_taken": "mark_paid", "lang": lang}
 
