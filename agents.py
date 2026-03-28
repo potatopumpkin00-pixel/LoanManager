@@ -163,14 +163,15 @@ Examples:
 "Ravi paid"
 "Mark interest paid for Kumar"
 "ரவி 1000 கட்டினார்"
-"ravi paid 2000"
+"ravi paid 2000 on 15th"
+"Raj paid today 5000"
 
 Extract:
 • lender_name
-• amount (optional)
+• amount (number or null)
+• payment_date (Format: YYYY-MM-DD or null. Translate 'today', 'yesterday', etc to YYYY-MM-DD using CURRENT DATE)
 
-If the user does not specify the `amount`, you MUST set the intent to `general_chat` and ask them "எவ்வளவு தொகை செலுத்தப்பட்டது?" (How much amount was paid?).
-Only output `mark_paid` if both `lender_name` and `amount` are clear or previously provided!
+Always set intent to `mark_paid` when the user mentions a payment being made, even if amount or date is missing. DO NOT use `check_status` for "X paid" messages. If `amount` or `payment_date` is not mentioned, leave them as `null` in the params.
 
 --------------------------------------------------
 
@@ -305,6 +306,7 @@ FORMAT:
   "params": {
     "lender_name": "",
     "amount": null,
+    "payment_date": null,
     "principal": 0,
     "interest_rate": 0,
     "loan_date": "",
@@ -530,6 +532,7 @@ class ConversationAgent:
         elif intent == "mark_paid":
             lender_name = params.get("lender_name", "")
             amount = params.get("amount")
+            payment_date = params.get("payment_date")
             
             loans = db.get_loan_by_name(telegram_id, lender_name)
             if not loans:
@@ -539,17 +542,34 @@ class ConversationAgent:
                     "lang": lang,
                 }
             
-            # The prompt ensures amount is provided for mark_paid. If not, fallback.
-            if not amount:
+            # Check for missing amount or date
+            if not amount and not payment_date:
+                return {
+                    "response": f"{lender_name} எவ்வளவு தொகை, எந்த தேதியில் செலுத்தினார்?",
+                    "action_taken": None,
+                    "lang": lang,
+                }
+            elif not amount:
                 return {
                     "response": f"{lender_name} எவ்வளவு தொகை செலுத்தினார்?",
                     "action_taken": None,
                     "lang": lang,
                 }
+            elif not payment_date:
+                return {
+                    "response": f"{lender_name} எந்த தேதியில் தொகையை செலுத்தினார்?",
+                    "action_taken": None,
+                    "lang": lang,
+                }
+
+            # Parse the payment date string
+            try:
+                current_date = date.fromisoformat(str(payment_date))
+            except (ValueError, AttributeError):
+                current_date = date.today()
 
             # Mark the first matching loan as paid
             loan = loans[0]
-            current_date = date.today()
             db.mark_paid(loan["id"], current_date)
             
             response = (
