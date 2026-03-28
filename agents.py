@@ -570,13 +570,31 @@ class ConversationAgent:
 
             # Mark the first matching loan as paid
             loan = loans[0]
-            db.mark_paid(loan["id"], current_date)
+            principal = float(loan["principal"])
+            rate = float(loan["interest_rate"])
+            monthly_interest = principal * rate / 100
             
-            response = (
-                f"✅ {loan['lender_name']} "
-                f"₹{float(amount):,.0f} செலுத்தியதாக குறிக்கப்பட்டது! "
-                f"(தேதி: {current_date.strftime('%Y-%m-%d')})"
-            )
+            paid_amount = float(amount)
+            
+            if paid_amount > monthly_interest:
+                # Reduce principal by the excess amount
+                principal_reduction = paid_amount - monthly_interest
+                new_principal = principal - principal_reduction
+                db.update_loan(loan["id"], new_principal, rate, current_date.isoformat())
+                response = (
+                    f"✅ {loan['lender_name']} "
+                    f"₹{paid_amount:,.0f} செலுத்தியதாக குறிக்கப்பட்டது! "
+                    f"(தேதி: {current_date.strftime('%Y-%m-%d')})\n"
+                    f"📉 புதிய அசல்: ₹{new_principal:,.0f}"
+                )
+            else:
+                db.mark_paid(loan["id"], current_date)
+                response = (
+                    f"✅ {loan['lender_name']} "
+                    f"₹{paid_amount:,.0f} செலுத்தியதாக குறிக்கப்பட்டது! "
+                    f"(தேதி: {current_date.strftime('%Y-%m-%d')})"
+                )
+                
             return {"response": response, "action_taken": "mark_paid", "lang": lang}
 
         elif intent == "add_loan":
