@@ -210,10 +210,10 @@ def add_loan(
 def mark_paid(loan_id: str, month: Optional[date] = None) -> dict:
     """
     Update last_paid_month for a loan.
-    Defaults to the 1st of the current month.
+    Defaults to the current date.
     """
     if month is None:
-        month = date.today().replace(day=1)
+        month = date.today()
 
     client = _get_client()
     response = (
@@ -268,38 +268,37 @@ def _parse_date(date_str: str) -> date:
 
 
 def format_loan_summary(loans: list[dict]) -> str:
-    """Format a list of loans into a readable summary string in Tamil."""
+    """Format a list of loans into a readable tabular summary string in Tamil."""
     if not loans:
         return "கடன் எதுவும் இல்லை."
 
-    lines = []
-    total_principal = 0
-    total_monthly_interest = 0
-
-    for i, loan in enumerate(loans, 1):
-        principal = float(loan["principal"])
-        rate = float(loan["interest_rate"])
-        monthly_interest = principal * rate / 100
-        total_principal += principal
-        total_monthly_interest += monthly_interest
-
-        loan_date = _parse_date(loan["loan_date"])
-        last_paid = loan.get("last_paid_month")
-        status = f"{last_paid} வரை செலுத்தப்பட்டது" if last_paid else "❌ இதுவரை செலுத்தப்படவில்லை"
-
-        lines.append(
-            f"{i}. **{loan['lender_name']}**\n"
-            f"   💰 **மாத வட்டி:** ₹{monthly_interest:,.0f}\n"
-            f"   💳 **அசல் தொகை:** ₹{principal:,.0f}\n"
-            f"   📈 **வட்டி விகிதம்:** {rate}%/மாதம்\n\n"
-            f"   📅 **நிலுவை:** ஒவ்வொரு மாதமும் {loan_date.day} ஆம் தேதி\n"
-            f"   📌 **நிலை:** {status}"
-        )
+    total_principal = sum(float(l["principal"]) for l in loans)
+    total_monthly_interest = sum(float(l["principal"]) * float(l["interest_rate"]) / 100 for l in loans)
 
     header = (
         f"📊 **கடன் சுருக்கம்** ({len(loans)} கடன்கள்)\n"
-        f"மொத்த அசல்: ₹{total_principal:,.0f}\n"
-        f"மொத்த மாத வட்டி: ₹{total_monthly_interest:,.0f}\n"
-        f"{'─' * 30}\n"
+        f"💰 மொத்த அசல்: ₹{total_principal:,.0f}\n"
+        f"📈 மொத்த மாத வட்டி: ₹{total_monthly_interest:,.0f}\n\n"
+        f"`{'பெயர்':<12} | {'அசல்':<8} | {'வட்டி':<6} | {'நிலுவை':<6} | {'நிலை':<10}`\n"
+        f"`{'-'*12}-+-{'-'*8}-+-{'-'*6}-+-{'-'*6}-+-{'-'*10}`\n"
     )
-    return header + "\n\n".join(lines)
+
+    lines = []
+    for loan in loans:
+        name = loan['lender_name'][:12]
+        principal = f"{float(loan['principal']):.0f}"
+        interest = f"{float(loan['principal']) * float(loan['interest_rate']) / 100:.0f}"
+        
+        loan_date = _parse_date(loan["loan_date"])
+        due = f"{loan_date.day}ஆம்"
+        
+        last_paid = loan.get("last_paid_month")
+        if last_paid:
+            paid_date = _parse_date(last_paid)
+            status = paid_date.strftime("%b %d") # e.g. Mar 28
+        else:
+            status = "Unpaid"
+
+        lines.append(f"`{name:<12} | {principal:<8} | {interest:<6} | {due:<6} | {status:<10}`")
+
+    return header + "\n".join(lines)

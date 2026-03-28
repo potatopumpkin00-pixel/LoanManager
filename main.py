@@ -96,7 +96,19 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /status command — show all loans."""
     loans = db.get_all_loans(AUTHORIZED_TELEGRAM_ID)
     summary = db.format_loan_summary(loans)
-    await send_long_message(update, summary, parse_mode="Markdown")
+    interactive_prompt = "\n\nஉங்களுக்கு ஏதேனும் விவரங்களை புதுப்பிக்க வேண்டுமா? (எழுத்து அல்லது குரல் வழியாக பதிலளிக்கவும்)"
+    await send_long_message(update, summary + interactive_prompt, parse_mode="Markdown")
+    
+    try:
+        from utils.audio import text_to_speech
+        prompt = "உங்களுக்கு ஏதேனும் விவரங்களை புதுப்பிக்க வேண்டுமா?"
+        tts_path = await text_to_speech(prompt, "ta")
+        with open(tts_path, "rb") as audio:
+            await update.message.reply_voice(voice=audio)
+        if os.path.exists(tts_path):
+            os.remove(tts_path)
+    except Exception as e:
+        logger.error(f"Failed to generate TTS for status prompt: {e}")
 
 
 @authorized_only
@@ -217,6 +229,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     result = await agent.process(user_text, AUTHORIZED_TELEGRAM_ID)
     await send_long_message(update, result["response"], parse_mode="Markdown")
+
+    if result.get("audio_prompt"):
+        try:
+            tts_path = await text_to_speech(result["audio_prompt"], "ta")
+            with open(tts_path, "rb") as audio:
+                await update.message.reply_voice(voice=audio)
+            if os.path.exists(tts_path):
+                os.remove(tts_path)
+        except Exception as e:
+            logger.error(f"Failed to generate TTS for prompt: {e}")
 
 
 @authorized_only

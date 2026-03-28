@@ -162,10 +162,15 @@ Examples:
 
 "Ravi paid"
 "Mark interest paid for Kumar"
-"ரவி பணம் கட்டிட்டார்"
-"ravi interest settled"
+"ரவி 1000 கட்டினார்"
+"ravi paid 2000"
 
-Extract lender_name.
+Extract:
+• lender_name
+• amount (optional)
+
+If the user does not specify the `amount`, you MUST set the intent to `general_chat` and ask them "எவ்வளவு தொகை செலுத்தப்பட்டது?" (How much amount was paid?).
+Only output `mark_paid` if both `lender_name` and `amount` are clear or previously provided!
 
 --------------------------------------------------
 
@@ -299,6 +304,7 @@ FORMAT:
   "intent": "check_status | mark_paid | add_loan | delete_loan | get_summary | general_chat",
   "params": {
     "lender_name": "",
+    "amount": null,
     "principal": 0,
     "interest_rate": 0,
     "loan_date": "",
@@ -513,14 +519,18 @@ class ConversationAgent:
             else:
                 loans = db.get_all_loans(telegram_id, filters)
             summary = db.format_loan_summary(loans)
+            interactive_prompt = "\n\nஉங்களுக்கு ஏதேனும் விவரங்களை புதுப்பிக்க வேண்டுமா? (எழுத்து அல்லது குரல் வழியாக பதிலளிக்கவும்)"
             return {
-                "response": summary,
+                "response": summary + interactive_prompt,
                 "action_taken": "check_status",
                 "lang": lang,
+                "audio_prompt": "உங்களுக்கு ஏதேனும் விவரங்களை புதுப்பிக்க வேண்டுமா?"
             }
 
         elif intent == "mark_paid":
             lender_name = params.get("lender_name", "")
+            amount = params.get("amount")
+            
             loans = db.get_loan_by_name(telegram_id, lender_name)
             if not loans:
                 return {
@@ -528,14 +538,24 @@ class ConversationAgent:
                     "action_taken": None,
                     "lang": lang,
                 }
+            
+            # The prompt ensures amount is provided for mark_paid. If not, fallback.
+            if not amount:
+                return {
+                    "response": f"{lender_name} எவ்வளவு தொகை செலுத்தினார்?",
+                    "action_taken": None,
+                    "lang": lang,
+                }
+
             # Mark the first matching loan as paid
             loan = loans[0]
-            current_month = date.today().replace(day=1)
-            db.mark_paid(loan["id"], current_month)
-            monthly_interest = float(loan["principal"]) * float(loan["interest_rate"]) / 100
+            current_date = date.today()
+            db.mark_paid(loan["id"], current_date)
+            
             response = (
-                f"✅ {loan['lender_name']} — {date.today().strftime('%B %Y')} "
-                f"வட்டி ₹{monthly_interest:,.0f} செலுத்தப்பட்டது!"
+                f"✅ {loan['lender_name']} "
+                f"₹{float(amount):,.0f} செலுத்தியதாக குறிக்கப்பட்டது! "
+                f"(தேதி: {current_date.strftime('%Y-%m-%d')})"
             )
             return {"response": response, "action_taken": "mark_paid", "lang": lang}
 
@@ -587,7 +607,13 @@ class ConversationAgent:
         elif intent == "get_summary":
             loans = db.get_all_loans(telegram_id)
             summary = db.format_loan_summary(loans)
-            return {"response": summary, "action_taken": "get_summary", "lang": lang}
+            interactive_prompt = "\n\nஉங்களுக்கு ஏதேனும் விவரங்களை புதுப்பிக்க வேண்டுமா? (எழுத்து அல்லது குரல் வழியாக பதிலளிக்கவும்)"
+            return {
+                "response": summary + interactive_prompt,
+                "action_taken": "get_summary",
+                "lang": lang,
+                "audio_prompt": "உங்களுக்கு ஏதேனும் விவரங்களை புதுப்பிக்க வேண்டுமா?"
+            }
 
         else:
             # general_chat — just return the LLM response

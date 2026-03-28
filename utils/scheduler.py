@@ -44,12 +44,12 @@ def format_reminder_message(loan: dict, day_offset: int = 0) -> str:
     return (
         f"{urgency}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 **{lender}**\n"
-        f"💰 வட்டி நிலுவை: **₹{monthly_interest:,.0f}**\n"
+        f"👤 {lender}\n"
+        f"💰 வட்டி நிலுவை: ₹{monthly_interest:,.0f}\n"
         f"📊 அசல்: ₹{principal:,.0f} @ {rate}%/மாதம்\n"
         f"📅 நிலுவை தேதி: {loan['loan_date']}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"\"**{lender} paid**\" என்று பதில் அனுப்பவும் அல்லது குரல் செய்தி அனுப்பவும்.\n"
+        f"\"{lender} paid\" என்று பதில் அனுப்பவும் அல்லது குரல் செய்தி அனுப்பவும்.\n"
     )
 
 
@@ -87,6 +87,19 @@ async def check_and_send_reminders(bot):
                     parse_mode="Markdown",
                 )
                 logger.info(f"Sent reminder for: {loan['lender_name']}")
+                
+                # Send voice prompt
+                from utils.audio import text_to_speech
+                try:
+                    voice_text = f"இன்று {loan['lender_name']}க்கு நிலுவை உள்ளது. நீங்கள் ஏதேனும் நிலுவைகளை கட்டப்பட்டதாக அதிப்பிக்க வேண்டுமா?"
+                    tts_path = await text_to_speech(voice_text, "ta")
+                    with open(tts_path, "rb") as audio:
+                        await bot.send_voice(chat_id=AUTHORIZED_TELEGRAM_ID, voice=audio)
+                    if os.path.exists(tts_path):
+                        os.remove(tts_path)
+                except Exception as e:
+                    logger.error(f"Failed to send voice reminder for {loan['lender_name']}: {e}")
+                    
             except Exception as e:
                 logger.error(f"Failed to send reminder for {loan['lender_name']}: {e}")
 
