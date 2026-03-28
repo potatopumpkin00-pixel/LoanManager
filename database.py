@@ -268,7 +268,7 @@ def _parse_date(date_str: str) -> date:
 
 
 def format_loan_summary(loans: list[dict]) -> str:
-    """Format a list of loans into a readable tabular summary string in Tamil."""
+    """Format a list of loans into a readable vertical summary string in Tamil."""
     if not loans:
         return "கடன் எதுவும் இல்லை."
 
@@ -276,29 +276,36 @@ def format_loan_summary(loans: list[dict]) -> str:
     total_monthly_interest = sum(float(l["principal"]) * float(l["interest_rate"]) / 100 for l in loans)
 
     header = (
-        f"📊 **கடன் சுருக்கம்** ({len(loans)} கடன்கள்)\n"
+        f"📋 **கடன் சுருக்கம்** ({len(loans)} கடன்கள்)\n"
         f"💰 மொத்த அசல்: ₹{total_principal:,.0f}\n"
-        f"📈 மொத்த மாத வட்டி: ₹{total_monthly_interest:,.0f}\n\n"
-        f"`{'பெயர்':<12} | {'அசல்':<8} | {'வட்டி':<6} | {'நிலுவை':<6} | {'நிலை':<10}`\n"
-        f"`{'-'*12}-+-{'-'*8}-+-{'-'*6}-+-{'-'*6}-+-{'-'*10}`\n"
+        f"📈 மொத்த மாத வட்டி: ₹{total_monthly_interest:,.0f}\n"
     )
 
     lines = []
     for loan in loans:
-        name = loan['lender_name'][:12]
-        principal = f"{float(loan['principal']):.0f}"
-        interest = f"{float(loan['principal']) * float(loan['interest_rate']) / 100:.0f}"
+        name = loan['lender_name']
+        principal = float(loan['principal'])
+        rate = float(loan['interest_rate'])
+        monthly_interest = principal * rate / 100
         
-        loan_date = _parse_date(loan["loan_date"])
-        due = f"{loan_date.day}ஆம்"
+        loan_date = loan["loan_date"]
         
         last_paid = loan.get("last_paid_month")
         if last_paid:
-            paid_date = _parse_date(last_paid)
-            status = paid_date.strftime("%b %d") # e.g. Mar 28
+            status = f"✅ {last_paid} வரை செலுத்தப்பட்டது"
         else:
-            status = "Unpaid"
+            status = "❌ இதுவரை செலுத்தப்படவில்லை"
 
-        lines.append(f"`{name:<12} | {principal:<8} | {interest:<6} | {due:<6} | {status:<10}`")
+        block = (
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 {name}\n"
+            f"💰 வட்டி நிலுவை: ₹{monthly_interest:,.0f}\n"
+            f"📊 அசல்: ₹{principal:,.0f} @ {rate}%/மாதம்\n"
+            f"📅 நிலுவை தேதி: {loan_date}\n"
+            f"📌 நிலை: {status}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"\"{name} paid\" என்று பதில் அனுப்பவும் அல்லது குரல் செய்தி அனுப்பவும்."
+        )
+        lines.append(block)
 
-    return header + "\n".join(lines)
+    return header + "\n" + "\n\n".join(lines)
