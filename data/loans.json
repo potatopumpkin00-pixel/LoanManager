@@ -279,4 +279,12 @@
     "interest_rate": 3.0,
     "interest": 900
   }
+  {
+    "lender_name": "Sangeetha",
+    "loan_date": "2026-04-14",
+    "last_paid_month": "2026-04-14",
+    "principal": 30000,
+    "interest_rate": 4.0,
+    "interest": 1200
+  }
 ]
